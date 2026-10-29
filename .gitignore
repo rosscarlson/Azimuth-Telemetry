@@ -1,0 +1,11 @@
+bin/
+obj/
+dist/
+probes/
+*.npz
+tools/.venv/
+__pycache__/
+*.pdb
+# Local session notes
+CLAUDE.md
+REQUESTS.md
