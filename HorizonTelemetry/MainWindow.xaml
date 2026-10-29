@@ -1,0 +1,464 @@
+<Window x:Class="HorizonTelemetry.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:azimuth="clr-namespace:HorizonTelemetry.Desktop.Azimuth"
+        Title="Horizon Telemetry" Width="1120" Height="880" MinWidth="980" MinHeight="680"
+        WindowStartupLocation="CenterScreen" Icon="Assets/App.ico"
+        Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}"
+        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" UseLayoutRounding="True"
+        SourceInitialized="Window_SourceInitialized" Closing="Window_Closing" Activated="Window_Activated" PreviewKeyDown="Window_PreviewKeyDown">
+
+    <Window.Resources>
+        <!-- Label + 0-1 meter bar + readout, used for the pedals -->
+        <Style x:Key="MeterTrack" TargetType="Border">
+            <Setter Property="Height" Value="8"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Background" Value="{DynamicResource ControlBorderBrush}"/>
+            <Setter Property="ClipToBounds" Value="True"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="MeterFill" TargetType="Border">
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="RenderTransformOrigin" Value="0,0.5"/>
+        </Style>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
+        </Style>
+        <Style x:Key="BigValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="30"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style x:Key="Pill" TargetType="Border">
+            <Setter Property="CornerRadius" Value="13"/>
+            <Setter Property="Padding" Value="10,3"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource ControlBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20,16,20,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="362"/>
+            <ColumnDefinition Width="12"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Header -->
+        <DockPanel Grid.ColumnSpan="3" Margin="0,0,0,14" LastChildFill="False">
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                <TextBlock Text="Horizon Telemetry" FontSize="22" FontWeight="SemiBold"/>
+                <TextBlock x:Name="VersionText" Style="{StaticResource SecondaryText}" Margin="10,0,0,4" VerticalAlignment="Bottom"/>
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <Border x:Name="RunPill" Style="{StaticResource Pill}" Margin="0,0,16,0" VerticalAlignment="Center"
+                        ToolTip="Telemetry engine state">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="RunDot" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center"
+                                 Fill="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock x:Name="RunPillText" Text="Stopped" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+                <TextBlock Text="Theme" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <ComboBox x:Name="ThemeBox" Width="116" SelectionChanged="ThemeBox_SelectionChanged">
+                    <ComboBoxItem Content="Dark"/>
+                    <ComboBoxItem Content="Light"/>
+                    <ComboBoxItem Content="System"/>
+                </ComboBox>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- Left column -->
+        <ScrollViewer Grid.Row="1" Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,0,10,0">
+                <Border Style="{StaticResource Card}">
+                    <StackPanel x:Name="SettingsGrid">
+                        <TextBlock Text="Send telemetry to" Style="{StaticResource CardHeader}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="Address" Style="{StaticResource FieldLabel}"/>
+                            <Grid Grid.Column="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="72"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="HostBox" LostFocus="Target_LostFocus" ToolTip="SimHub's PC: 127.0.0.1 when it runs on this PC"/>
+                                <TextBlock Grid.Column="1" Text=":" Margin="6,0" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBox x:Name="PortBox" Grid.Column="2" TextAlignment="Right" LostFocus="Target_LostFocus" ToolTip="UDP port (SimHub's Forza Horizon port)"/>
+                            </Grid>
+                            <TextBlock Grid.Row="2" Text="Packet" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox x:Name="FormatBox" Grid.Row="2" Grid.Column="1" SelectionChanged="FormatBox_SelectionChanged">
+                                <ComboBoxItem Content="Forza Horizon 4/5 (324 bytes)"/>
+                                <ComboBoxItem Content="Forza Motorsport 7 Dash (311 bytes)"/>
+                            </ComboBox>
+                            <TextBlock Grid.Row="4" Text="Rate" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox x:Name="RateBox" Grid.Row="4" Grid.Column="1" SelectionChanged="RateBox_SelectionChanged">
+                                <ComboBoxItem Content="30 Hz" Tag="30"/>
+                                <ComboBoxItem Content="60 Hz" Tag="60"/>
+                                <ComboBoxItem Content="120 Hz" Tag="120"/>
+                            </ComboBox>
+                        </Grid>
+                        <TextBlock x:Name="SettingsHint" Style="{StaticResource SecondaryText}" Margin="0,10,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Start/stop hotkey" Style="{StaticResource CardHeader}"/>
+                        <Border Style="{StaticResource Pill}" CornerRadius="4" Padding="10,6" HorizontalAlignment="Stretch">
+                            <TextBlock x:Name="HotkeyText" Text="Not set" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button x:Name="SetHotkeyButton" Content="Set…" MinWidth="72" Click="SetHotkey_Click"/>
+                            <Button x:Name="ClearHotkeyButton" Content="Clear" Margin="8,0,0,0" Click="ClearHotkey_Click"/>
+                        </StackPanel>
+                        <TextBlock x:Name="HotkeyWarning" Style="{StaticResource SecondaryText}" Foreground="{DynamicResource ErrorTextBrush}"
+                                   Margin="0,8,0,0" Visibility="Collapsed"/>
+                        <CheckBox x:Name="AnnounceCheck" Content="Say “telemetry on/off” when it's used" Margin="0,12,0,0"
+                                  Checked="AnnounceCheck_Changed" Unchecked="AnnounceCheck_Changed"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,4">
+                            <Button DockPanel.Dock="Right" Content="Reset" Padding="10,2" Click="CameraReset_Click"
+                                    ToolTip="The view in use back to the game's own field of view and seat position"/>
+                            <TextBlock Text="Camera" Style="{StaticResource CardHeader}" Margin="0"/>
+                        </DockPanel>
+                        <TextBlock x:Name="CameraText" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                        <TextBlock x:Name="CameraSubText" Style="{StaticResource SecondaryText}" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                        <ItemsControl x:Name="CameraKeyList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="92"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <TextBlock x:Name="KeyText" Grid.Column="1" Text="{Binding Display}" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Display}" Margin="0,0,6,0"/>
+                                        <Button Grid.Column="2" Content="Set…" Padding="8,1" MinHeight="24" Tag="{Binding}" Click="CameraKeySet_Click"/>
+                                        <Button Grid.Column="3" Padding="6,1" MinHeight="24" Margin="4,0,0,0" Tag="{Binding}" Click="CameraKeyClear_Click" ToolTip="Clear">
+                                            <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="9"/>
+                                        </Button>
+                                    </Grid>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsCapturing}" Value="True">
+                                            <Setter TargetName="KeyText" Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding HasProblem}" Value="True">
+                                            <Setter TargetName="KeyText" Property="Foreground" Value="{DynamicResource ErrorTextBrush}"/>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Right: telemetry and controls -->
+        <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource Card}" Margin="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Tabs, and the game that's running -->
+                <DockPanel Margin="0,0,0,14">
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                        <RadioButton x:Name="TelemetryTab" GroupName="Tabs" Content="Telemetry" Style="{StaticResource ChipToggle}" MinWidth="96" IsChecked="True" Checked="Tab_Checked"/>
+                        <RadioButton x:Name="ControlsTab" GroupName="Tabs" Content="Controls" Style="{StaticResource ChipToggle}" MinWidth="96" Margin="8,0,0,0" Checked="Tab_Checked"/>
+                    </StackPanel>
+                    <TextBlock x:Name="GameText" Style="{StaticResource SecondaryText}" VerticalAlignment="Center" TextAlignment="Right"
+                               TextTrimming="CharacterEllipsis" Margin="16,0,0,0"/>
+                </DockPanel>
+
+                <!-- Telemetry tab -->
+                <Grid x:Name="TelemetryPanel" Grid.Row="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <!-- Live view -->
+                    <Border Grid.Row="0" CornerRadius="8" Background="{DynamicResource RoomBrush}" Padding="16">
+                        <Grid>
+                            <TextBlock x:Name="LivePlaceholder" Style="{StaticResource SecondaryText}" FontSize="13" TextAlignment="Center"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="420"/>
+                            <Grid x:Name="LivePanel">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <UniformGrid Columns="3">
+                                    <StackPanel>
+                                        <TextBlock Text="Gear" Style="{StaticResource SecondaryText}"/>
+                                        <TextBlock x:Name="GearText" Text="–" Style="{StaticResource BigValue}"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="RPM" Style="{StaticResource SecondaryText}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock x:Name="RpmText" Text="–" Style="{StaticResource BigValue}"/>
+                                            <TextBlock x:Name="RedlineText" Style="{StaticResource SecondaryText}" VerticalAlignment="Bottom" Margin="6,0,0,7"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Speed" Style="{StaticResource SecondaryText}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock x:Name="SpeedText" Text="–" Style="{StaticResource BigValue}"/>
+                                            <TextBlock x:Name="SpeedAltText" Style="{StaticResource SecondaryText}" VerticalAlignment="Bottom" Margin="6,0,0,7"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </UniformGrid>
+
+                                <Grid Grid.Row="1" Margin="0,14,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="20"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="22"/>
+                                        <RowDefinition Height="22"/>
+                                        <RowDefinition Height="22"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Throttle" Style="{StaticResource FieldLabel}"/>
+                                    <Border Grid.Column="1" Style="{StaticResource MeterTrack}">
+                                        <Border Style="{StaticResource MeterFill}" Background="{DynamicResource SoundingBrush}">
+                                            <Border.RenderTransform><ScaleTransform x:Name="ThrottleScale" ScaleX="0"/></Border.RenderTransform>
+                                        </Border>
+                                    </Border>
+                                    <TextBlock Grid.Column="3" Text="Brake" Style="{StaticResource FieldLabel}"/>
+                                    <Border Grid.Column="4" Style="{StaticResource MeterTrack}">
+                                        <Border Style="{StaticResource MeterFill}" Background="{DynamicResource DangerBrush}">
+                                            <Border.RenderTransform><ScaleTransform x:Name="BrakeScale" ScaleX="0"/></Border.RenderTransform>
+                                        </Border>
+                                    </Border>
+                                    <TextBlock Grid.Row="1" Text="Clutch" Style="{StaticResource FieldLabel}"/>
+                                    <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource MeterTrack}">
+                                        <Border Style="{StaticResource MeterFill}">
+                                            <Border.RenderTransform><ScaleTransform x:Name="ClutchScale" ScaleX="0"/></Border.RenderTransform>
+                                        </Border>
+                                    </Border>
+                                    <TextBlock Grid.Row="1" Grid.Column="3" Text="Handbrake" Style="{StaticResource FieldLabel}"/>
+                                    <Border Grid.Row="1" Grid.Column="4" Style="{StaticResource MeterTrack}">
+                                        <Border Style="{StaticResource MeterFill}">
+                                            <Border.RenderTransform><ScaleTransform x:Name="HandbrakeScale" ScaleX="0"/></Border.RenderTransform>
+                                        </Border>
+                                    </Border>
+                                    <TextBlock Grid.Row="2" Text="Steering" Style="{StaticResource FieldLabel}"/>
+                                    <!-- Steering: fills from the centre, left or right -->
+                                    <Border Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4" Style="{StaticResource MeterTrack}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Style="{StaticResource MeterFill}" RenderTransformOrigin="1,0.5">
+                                                <Border.RenderTransform><ScaleTransform x:Name="SteerLeftScale" ScaleX="0"/></Border.RenderTransform>
+                                            </Border>
+                                            <Border Grid.Column="1" Style="{StaticResource MeterFill}">
+                                                <Border.RenderTransform><ScaleTransform x:Name="SteerRightScale" ScaleX="0"/></Border.RenderTransform>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+
+                                <DockPanel Grid.Row="2" Margin="0,12,0,8">
+                                    <Button x:Name="RescanButton" DockPanel.Dock="Right" Margin="8,0,0,0" Padding="7,3" MinHeight="26"
+                                            ToolTip="Look for cars again now" Click="Rescan_Click">
+                                        <TextBlock Text="&#xE72C;" FontFamily="{StaticResource IconFont}" FontSize="12"/>
+                                    </Button>
+                                    <Button x:Name="NextCarButton" DockPanel.Dock="Right" Content="Next car" MinHeight="26" Padding="10,2"
+                                            ToolTip="If the readout isn't your car (RPM and gear don't match), step through the cars found" Click="NextCar_Click"/>
+                                    <TextBlock x:Name="CarInfoText" Style="{StaticResource SecondaryText}" VerticalAlignment="Center"/>
+                                </DockPanel>
+
+                                <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource CardBorderBrush}" Padding="0,8,0,0">
+                                    <ScrollViewer x:Name="LogScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsControl x:Name="LogList">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding}" Style="{StaticResource SecondaryText}" Margin="0,0,0,2"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- Render aspect ratio (the Azimuth-Span shim) -->
+                    <Border x:Name="AspectSection" Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource CardBorderBrush}" Padding="0,12,0,0" Margin="0,14,0,0">
+                        <DockPanel>
+                            <StackPanel>
+                                <TextBlock Text="Render Aspect Ratio" FontWeight="SemiBold"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="Game Resolution:" Style="{StaticResource FieldLabel}" Margin="0,0,16,0"/>
+                                    <TextBlock Text="Width" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="AspectWidthBox" Width="80" TextAlignment="Right"
+                                             ToolTip="Total width in pixels, e.g. 10240 for 2560 + 5120 + 2560"/>
+                                    <TextBlock Text="Height" Style="{StaticResource FieldLabel}" Margin="20,0,12,0"/>
+                                    <TextBox x:Name="AspectHeightBox" Width="80" TextAlignment="Right"
+                                             ToolTip="Height in pixels, e.g. 1440"/>
+                                    <Button x:Name="SetAspectButton" Content="Set" MinWidth="72" Margin="16,0,0,0" Click="SetAspect_Click"/>
+                                    <Button x:Name="ClearAspectButton" Content="Clear" MinWidth="72" Margin="8,0,0,0" Click="ClearAspect_Click"/>
+                                </StackPanel>
+                                <StackPanel x:Name="AzimuthFolderRow" Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock x:Name="AzimuthFolderText" Style="{StaticResource SecondaryText}" VerticalAlignment="Center"/>
+                                    <Button Content="Browse…" Margin="10,0,0,0" Padding="10,3" Click="BrowseAzimuth_Click"/>
+                                </StackPanel>
+                                <TextBlock x:Name="ShimStatus" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Probe -->
+                    <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource CardBorderBrush}" Padding="0,12,0,0" Margin="0,14,0,0">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
+                                <Button x:Name="OpenProbesButton" Padding="7,3" ToolTip="Open the probes folder" Click="OpenProbes_Click">
+                                    <TextBlock Text="&#xE838;" FontFamily="{StaticResource IconFont}" FontSize="12"/>
+                                </Button>
+                                <Button x:Name="ProbeButton" Margin="8,0,0,0" MinWidth="120" Click="Probe_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="ProbeIcon" Text="&#xE7C8;" FontFamily="{StaticResource IconFont}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock x:Name="ProbeLabel" Text="Record probe" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Probe drive" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="ProbeText" Style="{StaticResource SecondaryText}" Margin="0,2,0,0"/>
+                                <Border x:Name="ProbeMeter" Style="{StaticResource MeterTrack}" Margin="0,8,0,0" Visibility="Collapsed">
+                                    <Border Style="{StaticResource MeterFill}">
+                                        <Border.RenderTransform><ScaleTransform x:Name="ProbeScale" ScaleX="0"/></Border.RenderTransform>
+                                    </Border>
+                                </Border>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Status + primary action -->
+                    <DockPanel Grid.Row="3" Margin="0,14,0,0">
+                        <Button x:Name="StartButton" DockPanel.Dock="Right" Style="{StaticResource AccentButton}" MinWidth="136" MinHeight="42"
+                                Margin="12,0,0,0" Click="Start_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="StartIcon" FontFamily="{StaticResource IconFont}" Text="&#xE768;" FontSize="14" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBlock x:Name="StartLabel" Text="Start" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <CheckBox x:Name="StartAzimuthCheck" DockPanel.Dock="Right" Content="Start Azimuth" VerticalAlignment="Center" Margin="12,0,0,0"
+                                  Checked="StartAzimuth_Changed" Unchecked="StartAzimuth_Changed"
+                                  ToolTip="Start also launches azimuth.exe from its folder, if it isn't running"/>
+                        <TextBlock x:Name="StatusText" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Grid>
+
+                <!-- Controls tab: Azimuth's wheel bindings -->
+                <Grid x:Name="ControlsPanel" Grid.Row="1" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Border x:Name="DiagramBox" CornerRadius="8" Background="{DynamicResource RoomBrush}" Padding="12,10" Margin="0,0,0,12"
+                            ToolTip="Live: move the wheel and pedals, press the buttons, to see what's bound. Faint means not bound.">
+                        <azimuth:WheelDiagram x:Name="Diagram"/>
+                    </Border>
+                    <StackPanel Grid.Row="1" Margin="0,0,0,12">
+                        <TextBlock x:Name="ControlsIntro" Style="{StaticResource SecondaryText}" FontSize="13"/>
+                        <StackPanel x:Name="ControlsSettingsRow" Orientation="Horizontal" Margin="0,12,0,0">
+                            <TextBlock Text="Rotation" Style="{StaticResource FieldLabel}"/>
+                            <TextBox x:Name="RotationBox" Width="72" TextAlignment="Right" LostFocus="ControlsNumber_LostFocus"
+                                     ToolTip="The wheel's full rotation, lock to lock, in degrees"/>
+                            <TextBlock Text="degrees" Margin="6,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBlock Text="Force feedback" Style="{StaticResource FieldLabel}" Margin="28,0,12,0"/>
+                            <TextBox x:Name="ForceBox" Width="72" TextAlignment="Right" LostFocus="ControlsNumber_LostFocus"
+                                     ToolTip="Azimuth's force feedback strength"/>
+                            <TextBlock Text="%" Margin="6,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <Border x:Name="BindingBox" Grid.Row="2" CornerRadius="8" Background="{DynamicResource RoomBrush}" Padding="6">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl x:Name="BindingList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="10,3">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="130"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Label}" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="Value" Grid.Column="1" Text="{Binding Display}" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" Margin="0,0,10,0" ToolTip="{Binding Value}"/>
+                                            <Button Grid.Column="2" Content="Bind…" Padding="12,3" Tag="{Binding}" Click="Bind_Click"/>
+                                            <Button Grid.Column="3" Content="Clear" Padding="10,3" Margin="6,0,0,0" Tag="{Binding}" Click="ClearBinding_Click"
+                                                    IsEnabled="{Binding IsSet}"/>
+                                        </Grid>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsSet}" Value="False">
+                                                <Setter TargetName="Value" Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsCapturing}" Value="True">
+                                                <Setter TargetName="Value" Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                                <Setter TargetName="Value" Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                    <TextBlock x:Name="CaptureText" Grid.Row="3" Style="{StaticResource SecondaryText}" Margin="0,10,0,0"/>
+                    <DockPanel x:Name="ControlsActions" Grid.Row="4" Margin="0,12,0,0">
+                        <Button x:Name="SaveControlsButton" DockPanel.Dock="Right" Style="{StaticResource AccentButton}" MinWidth="136" MinHeight="42"
+                                Margin="12,0,0,0" Click="SaveControls_Click">
+                            <TextBlock Text="Save to Azimuth" FontSize="15" FontWeight="SemiBold"/>
+                        </Button>
+                        <Button x:Name="ReloadControlsButton" DockPanel.Dock="Right" Content="Reload" VerticalAlignment="Center" Click="ReloadControls_Click"
+                                ToolTip="Read Azimuth's bindings again, dropping unsaved changes"/>
+                        <TextBlock x:Name="ControlsStatus" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

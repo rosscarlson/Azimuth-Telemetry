@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>HorizonTelemetry</AssemblyName>
+    <RootNamespace>HorizonTelemetry.Desktop</RootNamespace>
+    <Product>Horizon Telemetry</Product>
+    <AssemblyTitle>Horizon Telemetry - Forza Data Out for Forza Horizon on Azimuth</AssemblyTitle>
+    <Company>rosscarlson</Company>
+    <Version>0.1.0</Version>
+    <ApplicationIcon>Assets\App.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\App.ico" />
+  </ItemGroup>
+
+  <!-- The Azimuth-Span shim (C, ..\AzimuthSpan) is built with the VS Build Tools and embedded;
+       the app installs it as dinput8.dll next to azimuth.exe. -->
+  <PropertyGroup>
+    <ShimDir>$(MSBuildThisFileDirectory)..\AzimuthSpan\</ShimDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(ShimDir)out\dinput8.dll" LogicalName="AzimuthSpan.dinput8.dll" Link="AzimuthSpan\dinput8.dll" />
+  </ItemGroup>
+  <Target Name="BuildAzimuthSpan" BeforeTargets="PrepareForBuild" Inputs="$(ShimDir)src\span.c;$(ShimDir)src\span.def" Outputs="$(ShimDir)out\dinput8.dll">
+    <Exec Command="&quot;$(ShimDir)build.cmd&quot;" />
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HorizonTelemetry.Core\HorizonTelemetry.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Vortice.DirectInput" Version="3.8.3" />
+  </ItemGroup>
+
+</Project>

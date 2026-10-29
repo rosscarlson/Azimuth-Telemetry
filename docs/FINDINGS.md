@@ -82,3 +82,122 @@ are divided by nominal peaks (0.10, 0.14 rad) so 1 is roughly the limit of grip.
 
 - Surface rumble: no per-wheel field found yet (SimHub's road effects work from suspension).
 - Torque/power units, boost, tyre temperatures (the HUD has them).
+
+# Forza Horizon 3 (Xbox One build in Azimuth)
+
+Target: Xbox One `forza_durango_release_final.exe`, Opus 1.0.125.0 (PE timestamp `5B16ECCA`),
+also mapped at `0x140000000`. Same engine, so the same way in, but much faster: the class names
+survive, and `CCarDynamics` still has an `ICarDynamics` sub-object, now at `+0x4B0` with 474
+vtable entries (`tools/fh3_icardyn_vtable.txt`, from `tools/vtdump.py`).
+`tools/vtalign.py` lines FH2's 381 getters up with FH3's by instruction shape (difflib
+alignment of normalised disassembly); most one-line getters match exactly, so each FH2 field's
+FH3 offset can be read straight off the matching getter. `tools/vtwheel.py` does the same for
+the per-wheel getters.
+
+- Vtables: `0x144680EA0` / `0x144680F30`, and `0x144682578` / `0x144682608` for
+  `TRefCountedObjectThreadSafeWithDeletionInfo<CCarDynamics>`.
+- Fingerprint: ICarDynamics vtable `+0x1B8` (the clamped RPM getter, FH2's `+0x1A0`) =
+  `0x141D3FE10`. The HUD's own properties are now observable objects, so the getter chain used
+  for FH2 doesn't apply; the vtable match does the job.
+
+| Field | FH2 | FH3 | FH3 getter (vtable entry) |
+|---|---|---|---|
+| steering / max | `+0x008` / `+0x058` | same | 359 |
+| engine rad/s | `+0x148` | same | 55 |
+| torque / power | `+0x18C` / `+0x194` | same | 143 / 151 |
+| max engine rad/s | `+0x1CC` | `+0x1D4` | 55, 130, 132 |
+| idle rad/s | `+0x5C0` | `+0x5C8` | 131, 132 |
+| clutch | `+0xA8C` | `+0xA94` | 352 |
+| gear (byte) / count | `+0xAA0` / `+0xABC` | `+0xAA8` / `+0xAC4` | 54 / 291 |
+| gear ratios | `+0xAC0`, 12-byte stride | `+0xAC8`, 20-byte stride | 313, 314 |
+| inputs | `+0xDF8` | `+0x1298` | 45 |
+| speed, m/s | `+0xE28` | `+0x12D4` | 104 |
+| position | `+0xEF0` | `+0x13A0` | 172 |
+| player flag (byte) | `+0x4EE7` | `+0xCB89` | 468 |
+| AI-controlled (int) | `+0xFBC` | `+0x1534` | 19, 47 |
+| wheel blocks | `+0x11B0`, stride `0x4B0` | `+0x1750`, stride `0x1490` | |
+
+Within a wheel block (FH2 -> FH3): suspension position `0x000` (entry 244), spin `0x00C` (180/181),
+slip angle `0x024 -> 0x048` (179), contact longitudinal velocity `0x2C4 -> 0x2FC` (from the
+`+0x38` shift of its neighbours), tyre radius `0x3C0 -> 0x414` (168), droop `0x3F4 -> 0x458`
+(neighbours `0x3F8/0x3FC -> 0x45C/0x460`, entries 254/255), bump `0x3FC -> 0x460`, rest
+`0x484 -> 0x524` (entry 245, `pos - [w+0x524]`, FH2's 205).
+
+Checked read-only against the running game (intro drive, 2026-10-29, `tools/live.py`): 30 cars;
+exactly one with the player flag and AI = 0; on it RPM 6912 of 10000, gear 6 of 8 (count includes
+reverse), throttle 0.75, speed 73 m/s, wheel spin x radius = contact velocity = speed (221.5 x
+0.331 = 73.3), suspension between droop and bump, clutch dips and gears drop under braking, slip
+angle rises in corners. Then through the app's own engine: car found about 1 s after start,
+60 packets/s.
+
+Scanning: FH3 has ~11 GB of writable memory, 4.6 GB of it write-combined (GPU) memory that takes
+tens of seconds to read. The scanner now skips `PAGE_WRITECOMBINE`/`PAGE_NOCACHE` pages and
+searches the private heap first (mapped memory only if no car turns up).
+
+Probe drive (`probe-fh3-20261029-165614.bin`, `tools/fh3_probe.py` + `tools/fh3_pa.py`; the
+probe keeps the first 0x7000 bytes, so the player is the car with AI = 0):
+
+- Wheel order FL, FR, RL, RR: on full left lock (steer -1) the right-hand wheels spin faster, and
+  the other way round.
+- Steering -1 left, +1 right; reaches -0.98..1.00.
+- Gear: raw 0 is reverse (wheels spin backwards, ratio -2.93), forward 1..n, count 8 includes
+  reverse.
+- Suspension: fronts compress and rears extend under braking; positions stay between droop and
+  bump (hitting both off road); rest 0.0267 front, 0.0517 rear; tyre radius 0.3305 / 0.3554.
+- Handbrake reaches 1 in the slide phase; pause freezes the block.
+- Slip spikes: contact velocity is exactly 0 while a wheel is in the air (32-69 frames per wheel
+  with the car moving). The reader now reports no slip for such a wheel. Real wheelspin (launch,
+  surface 15.6 m/s against 2.2 m/s) is still reported.
+
+# In-car camera (FOV and seat position)
+
+Both games register their camera tuning values by name with the address of a static variable
+(`tools/tunables.py` lists them; FH3 shown, FH2 uses other code so the script finds none there):
+`Camera\FileData\Driver\FOV` (`0x144639F58`, 48 at run time), `Driver\DefaultOffsetFromSteeringWheelX/Y/Z`
+(`0x144E72B70`), `Driver\TripleScreenAdditionalZOffset` (`0x144E72964`, -0.2), `CockpitCam\FOVRatio`,
+plus Hood, BumperHigh, Wheel and Free cameras.
+
+Those are only read when a view starts. `Camera::CCamDriver` (the in-car view) copies them into
+the object: vtable slot 85 sets `+0x1F0` = FOV in radians, slot 86 sets the seat offset `+0x1B0`
+(x, y, z) from the car's own cockpit data, falling back to the defaults, then adds the triple-screen
+Z. Every frame the FOV getter (slot 15) reads `+0x1F0` and the update (slots 2 and 4) read
+`+0x1B0`. So the app writes those two fields in the live object and writes them again whenever the
+game sets the view up afresh.
+
+| | FH2 | FH3 |
+|---|---|---|
+| `CCamDriver` vtable | `0x142E78120` (78 entries) | `0x14463ACB0` (89) |
+| FOV, radians | `+0x1D0` (getter slot 14, setup slot 74) | `+0x1F0` (slots 15, 85) |
+| seat offset x, y, z, metres | `+0x190` (setup slot 75) | `+0x1B0` (slot 86) |
+
+Checked live in FH3 (2026-10-29): two `CCamDriver` objects, one in use at 48 degrees with a
+per-car offset such as (-0.02, 0.03, 0.02), the other all zero. Written values stay put (the
+game doesn't rewrite them each frame); a new car sets new values. The app's `CameraAdjuster`
+moved FOV 48 -> 49 and seat z +0.01 and back. FH2's fields come from the matching functions;
+not yet tried live. Axis directions (z forward, y up, x right) are assumed from the hood
+camera's offset (0, 0.2, -0.5) and the triple-screen z of -0.2 and need confirming in game.
+
+## Every driving view (2026-10-29)
+
+`CCamDriver` (cockpit), `CCamCockpit` (dashboard), `CCamHood` and `CCamBumperHigh` share one FOV
+getter, so FOV and seat offset sit at the same place in all four (FH2 `+0x1D0`/`+0x190`, FH3
+`+0x1F0`/`+0x1B0`). The chase views `CCamFollow`, `CCamFollowLow` (near), `CCamFollowHigh` (far)
+read FOV in degrees from the car's view data: FH2 `[obj+0x180]+0x1C`, FH3 `[obj+0x1A0]+0x1C`
+(48 near, 58 far in FH3).
+
+| View | FH2 vtable | FH3 vtable |
+|---|---|---|
+| Cockpit (`CCamDriver`) | `0x142E78120` | `0x14463ACB0` |
+| Dashboard (`CCamCockpit`) | `0x142E77C30` | `0x14463A710` |
+| Hood | `0x142E77EA8` | `0x14463A9E0` |
+| Bumper (`CCamBumperHigh`) | `0x142E703B0` | `0x144630430` |
+| Chase (`CCamFollow`) | `0x142E783A0` | `0x14463AF88` |
+| Chase near (`CCamFollowLow`) | `0x142E78610` | `0x14463B250` |
+| Chase far (`CCamFollowHigh`) | `0x142E78880` | `0x14463B518` |
+
+All views exist at once, so the one in use has to be found. No flag or manager pointer was found
+quickly; a cued recording (voice asking for each view, FH3) showed the view in use is the one whose
+first 0x300 bytes keep changing: bumper only BumperHigh, chase near only FollowLow, chase far only
+FollowHigh, cockpit Driver plus Hood, hood Hood plus Bumper. So the adjuster takes the changing view
+with the best priority (cockpit, dashboard, chase, hood, bumper) and keeps the last one while nothing
+changes (paused). Its own FOV/seat writes are masked out of the comparison.
