@@ -1,6 +1,6 @@
 @echo off
 rem Builds out\dinput8.dll (the Azimuth-Span shim) with the Visual Studio 2022 Build Tools (x64).
-rem HorizonTelemetry.csproj runs this and embeds the result.
+rem AzimuthTelemetry.csproj runs this and embeds the result.
 setlocal
 set VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe
 for /f "usebackq delims=" %%i in (`call "%VSWHERE%" -latest -products * -property installationPath`) do set VS=%%i

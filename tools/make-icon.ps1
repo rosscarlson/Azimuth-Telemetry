@@ -1,8 +1,8 @@
-# Generates HorizonTelemetry/Assets/App.ico (multi-size, PNG entries). Based on MCAL's make-icon.ps1.
+# Generates AzimuthTelemetry/Assets/App.ico (multi-size, PNG entries). Based on MCAL's make-icon.ps1.
 # Run with Windows PowerShell 5.1: powershell -File tools\make-icon.ps1
 Add-Type -AssemblyName System.Drawing
 
-$out = Join-Path $PSScriptRoot '..\HorizonTelemetry\Assets\App.ico'
+$out = Join-Path $PSScriptRoot '..\AzimuthTelemetry\Assets\App.ico'
 $sizes = 16, 24, 32, 48, 64, 128, 256
 $pngs = @()
 

@@ -1,6 +1,6 @@
 // Azimuth-Span: a dinput8.dll shim that lets Azimuth run across a row of
 // side-by-side monitors (for example a 2560 + 5120 + 2560 triple-screen rig,
-// 10240x1440 or 64:9). Horizon Telemetry installs it next to azimuth.exe.
+// 10240x1440 or 64:9). Azimuth Telemetry installs it next to azimuth.exe.
 //
 // Two changes, both in memory only (delete the DLL to undo):
 //
@@ -282,7 +282,7 @@ static void read_settings(void)
 }
 
 // Only azimuth.exe is changed. Other programs that load this DLL from the
-// same folder (Horizon Telemetry reads DirectInput there) get plain
+// same folder (Azimuth Telemetry reads DirectInput there) get plain
 // DirectInput; AZIMUTH_SPAN_TEST=1 lets the test program through.
 static BOOL in_azimuth(void)
 {

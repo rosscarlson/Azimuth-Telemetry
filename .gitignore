@@ -10,6 +10,6 @@ __pycache__/
 CLAUDE.md
 REQUESTS.md
 
-# Azimuth-Span build output (built by HorizonTelemetry.csproj)
+# Azimuth-Span build output (built by AzimuthTelemetry.csproj)
 AzimuthSpan/build/
 AzimuthSpan/out/

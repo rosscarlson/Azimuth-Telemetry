@@ -1,6 +1,6 @@
 # Third-party notices
 
-`HorizonTelemetry.Core/ForzaPacket.cs` is a C# port of `src/telemetry/forza_dash.cpp` from
+`AzimuthTelemetry.Core/ForzaPacket.cs` is a C# port of `src/telemetry/forza_dash.cpp` from
 [Pinyon Shift](https://github.com/arcanite24/pinyon-shift), used under this licence:
 
 ```

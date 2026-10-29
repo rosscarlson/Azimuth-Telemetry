@@ -1,4 +1,4 @@
-# Horizon Telemetry
+# Azimuth Telemetry
 
 **Telemetry to UDP for Forza Horizon 2 and 3 running on the Azimuth emulator.** A Windows app that
 reads the game's own car physics and sends them out as standard Forza "Data Out" UDP packets (the
@@ -42,8 +42,8 @@ each:
 
 ## Download
 
-Get `HorizonTelemetry-v0.1.zip` from [Releases](../../releases), unzip it and put
-`HorizonTelemetry.exe` in Azimuth's folder (next to `azimuth.exe`). It needs the
+Get `AzimuthTelemetry-v0.2.zip` from [Releases](../../releases), unzip it and put
+`AzimuthTelemetry.exe` in Azimuth's folder (next to `azimuth.exe`). It needs the
 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) (x64) and supports
 `forza_durango_release_final.exe` 1.0.0.64 (Forza Horizon 2) and the Xbox One Forza Horizon 3
 1.0.125.0 on Azimuth 1.0.x. It says so if Azimuth is running something else.
@@ -52,19 +52,19 @@ Get `HorizonTelemetry-v0.1.zip` from [Releases](../../releases), unzip it and pu
 
 ```
 dotnet test -c Release
-dotnet publish HorizonTelemetry -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o dist
+dotnet publish AzimuthTelemetry -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o dist
 ```
 
-Projects: `HorizonTelemetry.Core` (game reading, packet encoder, engine, probe), `HorizonTelemetry`
-(the WPF app), `HorizonTelemetry.Tests`.
+Projects: `AzimuthTelemetry.Core` (game reading, packet encoder, engine, probe), `AzimuthTelemetry`
+(the WPF app), `AzimuthTelemetry.Tests`.
 
 ## Use
 
 1. Point your telemetry receiver at the app's address and port (default `127.0.0.1:8000`). In
    SimHub, for example, pick **Forza Horizon 4** (or 5) and set its UDP port to match.
-2. Run `HorizonTelemetry.exe`. It works out which game Azimuth is running (FH2 or FH3) by itself.
+2. Run `AzimuthTelemetry.exe`. It works out which game Azimuth is running (FH2 or FH3) by itself.
 3. Press **Start** (or your hotkey) and start the game in Azimuth, in either order. With
-   **Start Azimuth** ticked, Start also launches `azimuth.exe` (put `HorizonTelemetry.exe` in
+   **Start Azimuth** ticked, Start also launches `azimuth.exe` (put `AzimuthTelemetry.exe` in
    Azimuth's folder, or pick the folder under Render Aspect Ratio).
 4. If the live readout isn't your car (RPM and gear don't match), press **Next car**.
 
@@ -76,7 +76,7 @@ Azimuth's own and apply to every game it runs too.
 and stops telemetry, including while the game has focus. It can say
 "telemetry on/off" so you know without looking.
 
-Settings are saved in `%APPDATA%\HorizonTelemetry\settings.json`.
+Settings are saved in `%APPDATA%\AzimuthTelemetry\settings.json`.
 
 ## Camera (FOV and seat position)
 
@@ -118,7 +118,8 @@ the bindings instead. A live picture of the wheel, pedals, buttons and shifter a
 what each control is bound to as you move it (faint = not bound). **Bind…** listens for the control (turn the wheel right; press a pedal fully
 and let go; press a button, hat or D-pad direction) on any connected device, and **Save to
 Azimuth** writes them, plus rotation and force feedback, to `data\azimuth.ini` with Azimuth
-closed. The first save keeps the original as `azimuth.ini.before-horizon-telemetry`. Azimuth keeps
+closed. The first save keeps the original as `azimuth.ini.before-azimuth-telemetry`
+(`.before-horizon-telemetry` if version 0.1 saved first). Azimuth keeps
 one set of bindings for every game it runs. Don't re-detect them on Azimuth's Controls page
 afterwards, or it may replace them.
 
